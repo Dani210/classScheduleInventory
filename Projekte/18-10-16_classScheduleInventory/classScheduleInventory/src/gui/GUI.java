@@ -32,7 +32,7 @@ public class GUI extends javax.swing.JFrame {
         listAppointments.setModel(appInv);
 
         chooser = new JFileChooser();
-        chooser.setCurrentDirectory(new File("~/"));
+        chooser.setCurrentDirectory(new File("src/DataFiles"));
         chooser.setMultiSelectionEnabled(false);
     }
 

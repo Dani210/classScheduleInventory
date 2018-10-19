@@ -12,7 +12,7 @@ import nwl.Net;
 
 public class DAL {
 
-    private Net net;
+    private final Net net;
 
     public DAL() {
         net = new Net();
@@ -58,13 +58,23 @@ public class DAL {
 
             while (scan.hasNextLine()) {
                 goodLine = scan.nextLine();
-                if (goodLine.contains("<td>")) {
-                    System.out.println(goodLine);
+                if (goodLine.contains("</td>")) {
+                    
+                    int dataStart = 0;
+                    goodLine = goodLine.replace("</td>", ""); // definiert das Ende indirekt
+                    for(int i = 0; i < goodLine.length(); i++){
+                        if(goodLine.charAt(i) == '>' && dataStart == 0){
+                            dataStart = i;
+                            break;
+                        }
+                    }
+                    goodLine = goodLine.substring(dataStart+1); //+1 -> habs exklusive, brauchs inklusive
+                    
                     try {
                         tokens = goodLine.split(" -> ");
                         title = tokens[0];
                         desc = tokens[1];
-                        date = LocalDate.parse(tokens[2], AbstractInventory.DATEFORMATTER);
+                        date = LocalDate.parse(tokens[2].trim(), AbstractInventory.DATEFORMATTER);
                         entries.add(new Appointment(title, desc, date));
                     } catch (DateTimeParseException e) {
                         throw e;

@@ -14,6 +14,8 @@ public class Net {
             File localFile)
             throws MalformedURLException, IOException
     {
+        
+        //remote File to local File
         Scanner scan = new Scanner(new URL(
                 "ftp://" + username + ":" + password + "@" + address
         ).openStream());
@@ -21,6 +23,7 @@ public class Net {
         
         while(scan.hasNextLine()){
             buf.write(scan.nextLine());
+            buf.newLine();
         }
         scan.close();
         buf.close();
