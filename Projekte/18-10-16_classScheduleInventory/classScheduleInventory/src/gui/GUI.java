@@ -4,6 +4,7 @@ import bl.Appointment;
 import bl.AppointmentInventory;
 import bl.Schedule;
 import bl.ScheduleInventory;
+import cryptStation.Cryptor;
 import java.io.File;
 import java.io.IOException;
 import java.net.MalformedURLException;
@@ -18,9 +19,16 @@ public class GUI extends javax.swing.JFrame {
     private ScheduleInventory schedInv;
     private AppointmentInventory appInv;
 
-    private JFileChooser chooser;
+    private final JFileChooser chooser;
 
-    private Dlg dlg;
+    private AddEntryDlg addingDialog;
+    private LoginDlg loginDialog;
+
+    private String savedUsername;
+    private char[] savedPassword;
+
+    private File savedLocalSchedulesFile;
+    private File savedLocalAppointmentsFile;
 
     public GUI() {
         initComponents();
@@ -33,7 +41,13 @@ public class GUI extends javax.swing.JFrame {
 
         chooser = new JFileChooser();
         chooser.setCurrentDirectory(new File("src/DataFiles"));
-        chooser.setMultiSelectionEnabled(false);
+        chooser.setMultiSelectionEnabled(false); //nur zur Sicherheit
+
+        savedUsername = null;
+        savedPassword = null; //always encrypted
+
+        savedLocalSchedulesFile = null;
+        savedLocalAppointmentsFile = null;
     }
 
     @SuppressWarnings("unchecked")
@@ -125,32 +139,32 @@ public class GUI extends javax.swing.JFrame {
     }// </editor-fold>//GEN-END:initComponents
 
     private void onAddActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_onAddActionPerformed
-        dlg = new Dlg(this, true);
+        addingDialog = new AddEntryDlg(this, true);
         int tab = -1;
         if (panelSwitcher.getSelectedComponent().equals(plSchedules)) {
             tab = 0;
-            dlg.setTitle("Add schedule");
-            dlg.setLabels("Subject:", "Until:");
-            dlg.setTextFields("POS", "Serealisierung", LocalDate.now());
+            addingDialog.setTitle("Add schedule");
+            addingDialog.setLabels("Subject:", "Until:");
+            addingDialog.setTextFields("POS", "Serealisierung", LocalDate.now());
         } else if (panelSwitcher.getSelectedComponent().equals(plAppointments)) {
             tab = 1;
-            dlg.setTitle("Add appointment");
-            dlg.setLabels("Title:", "Date:");
-            dlg.setTextFields("NVS", "Test", LocalDate.now());
+            addingDialog.setTitle("Add appointment");
+            addingDialog.setLabels("Title:", "Date:");
+            addingDialog.setTextFields("NVS", "Test", LocalDate.now());
         }
-        dlg.setVisible(true);
+        addingDialog.setVisible(true);
 
-        if (dlg.wasOk()) {
+        if (addingDialog.wasOk()) {
             if (tab == 0) {
                 try {
-                    schedInv.add(new Schedule(dlg.getTitle(), dlg.getDescription(), dlg.getDate()));
+                    schedInv.add(new Schedule(addingDialog.getTitle(), addingDialog.getDescription(), addingDialog.getDate()));
                 } catch (DateTimeParseException dtpe) {
                     JOptionPane.showMessageDialog(this, dtpe.getMessage(),
                             "Fehler: Datum", JOptionPane.ERROR_MESSAGE);
                 }
             } else if (tab == 1) {
                 try {
-                    appInv.add(new Appointment(dlg.getTitle(), dlg.getDescription(), dlg.getDate()));
+                    appInv.add(new Appointment(addingDialog.getTitle(), addingDialog.getDescription(), addingDialog.getDate()));
                 } catch (DateTimeParseException dtpe) {
                     JOptionPane.showMessageDialog(this, dtpe.getMessage(),
                             "Fehler: Datum", JOptionPane.ERROR_MESSAGE);
@@ -161,56 +175,140 @@ public class GUI extends javax.swing.JFrame {
 
     }//GEN-LAST:event_onAddActionPerformed
 
+    private String charArrToString(char[] pass) {
+        StringBuilder ret = new StringBuilder("");
+        for (int i = 0; i < pass.length; i++) {
+            ret.append(pass[i]);
+        }
+        return ret.toString();
+    }
+
     private void onLoadFromRemoteActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_onLoadFromRemoteActionPerformed
-        String username = null, password = null;
+        String username = null;
+        String password = null;
 
-        if ((username = JOptionPane.showInputDialog(this, "Username", "Username", JOptionPane.OK_CANCEL_OPTION))
-                != null) {
-            if ((password = JOptionPane.showInputDialog(this, "Password", "Password", JOptionPane.OK_CANCEL_OPTION))
-                    != null) {
-                chooser.setDialogTitle("Local Schedules-File");
-                chooser.setSelectedFile(null);
-                File schedules = chooser.showSaveDialog(this) == JFileChooser.APPROVE_OPTION ? chooser.getSelectedFile() : null;
-                chooser.setDialogTitle("Local Appointments-File");
-                chooser.setSelectedFile(null);
-                File appointments = chooser.showSaveDialog(this) == JFileChooser.APPROVE_OPTION ? chooser.getSelectedFile() : null;
+        File localSchedulesFile = null;
+        File localAppointmentsFile = null;
 
-                try {
-                    if (schedules != null) {
-                        schedInv.loadFileFromRemote(
-                                "ahif16.bplaced.net/www/classSchedules/Data/dataFile.html",
-                                username, password,
-                                schedules);
-                    }
-                    if (appointments != null) {
-                        appInv.loadFileFromRemote(
-                                "ahif16.bplaced.net/www/classSchedules/Data/terminFile.html",
-                                username, password,
-                                appointments);
-                    }
-                } catch (UnknownHostException e) {
-                    JOptionPane.showMessageDialog(this,
-                            "Host konnte nicht gefunden werden\n" + e.getMessage(),
-                            "Fehler",
-                            JOptionPane.ERROR_MESSAGE);
-                } catch (MalformedURLException e) {
-                    JOptionPane.showMessageDialog(this,
-                            "URL falsch\n" + e.getMessage(),
-                            "Fehler",
-                            JOptionPane.ERROR_MESSAGE);
-                } catch (IOException e) {
-                    JOptionPane.showMessageDialog(this,
-                            "Datei konnte nicht geöffnet werden.\n" + e.getMessage(),
-                            "Fehler",
-                            JOptionPane.ERROR_MESSAGE);
-                } catch (DateTimeParseException e) {
-                    JOptionPane.showMessageDialog(this,
-                            "Datumsformat falsch\n" + e.getMessage(),
-                            "Fehler",
-                            JOptionPane.ERROR_MESSAGE);
+        int yesOrNo = -1;
+
+        if (savedUsername != null && savedPassword != null) {
+            if ((yesOrNo = JOptionPane.showConfirmDialog(this, "Use saved login?", "Login",
+                    JOptionPane.YES_NO_OPTION, JOptionPane.PLAIN_MESSAGE))
+                    == JOptionPane.YES_OPTION) {
+
+                username = savedUsername;
+                password = Cryptor.decrypt(savedPassword);
+
+            } else if (yesOrNo == JOptionPane.NO_OPTION) {
+                loginDialog = new LoginDlg(this, true);
+                loginDialog.setDefaults(savedUsername, Cryptor.decrypt(savedPassword));
+                loginDialog.setVisible(true);
+
+                username = loginDialog.getUsername();
+                password = charArrToString(loginDialog.getPassword());
+                loginDialog.clearFields();
+
+                if (loginDialog.getSaveLogin()) {
+                    this.savedUsername = username;
+                    this.savedPassword = Cryptor.enrypt(password.toCharArray());
                 }
             }
-            
+        } else if (savedUsername == null || savedPassword == null) {
+            loginDialog = new LoginDlg(this, true);
+            loginDialog.setDefaults(savedUsername, Cryptor.decrypt(savedPassword));
+            loginDialog.setVisible(true);
+
+            username = loginDialog.getUsername();
+            password = charArrToString(loginDialog.getPassword());
+            loginDialog.clearFields();
+
+            if (loginDialog.getSaveLogin()) {
+                this.savedUsername = username;
+                this.savedPassword = Cryptor.enrypt(password.toCharArray());
+            }
+        }
+
+        if (username != null && password != null) {
+            //DefaultFiles ? defFiles : chooser;
+
+            yesOrNo = -1;
+            if (savedLocalSchedulesFile != null && savedLocalAppointmentsFile != null) {
+                if ((yesOrNo = JOptionPane.showConfirmDialog(this, "Use saved files?", "Files",
+                        JOptionPane.YES_NO_OPTION, JOptionPane.PLAIN_MESSAGE))
+                        == JOptionPane.YES_OPTION) {
+
+                    localSchedulesFile = savedLocalSchedulesFile;
+                    localAppointmentsFile = savedLocalAppointmentsFile;
+
+                } else if (yesOrNo == JOptionPane.NO_OPTION) {
+                    chooser.setDialogTitle("Local Schedules-File");
+                    localSchedulesFile = chooser.showSaveDialog(this) == JFileChooser.APPROVE_OPTION ? chooser.getSelectedFile() : null;
+                    chooser.setDialogTitle("Local Appointments-File");
+                    localAppointmentsFile = chooser.showSaveDialog(this) == JFileChooser.APPROVE_OPTION ? chooser.getSelectedFile() : null;
+
+                    if (JOptionPane.showConfirmDialog(this,
+                            "Set files as default-files to save to?",
+                            "Default Files", JOptionPane.YES_NO_OPTION,
+                            JOptionPane.PLAIN_MESSAGE) == JOptionPane.YES_OPTION) {
+
+                        savedLocalSchedulesFile = localSchedulesFile;
+                        savedLocalAppointmentsFile = localAppointmentsFile;
+
+                    }
+                }
+            } else if (savedLocalSchedulesFile == null || savedLocalAppointmentsFile == null) {
+                chooser.setDialogTitle("Local Schedules-File");
+                localSchedulesFile = chooser.showSaveDialog(this) == JFileChooser.APPROVE_OPTION ? chooser.getSelectedFile() : null;
+                chooser.setDialogTitle("Local Appointments-File");
+                localAppointmentsFile = chooser.showSaveDialog(this) == JFileChooser.APPROVE_OPTION ? chooser.getSelectedFile() : null;
+
+                if (JOptionPane.showConfirmDialog(this,
+                        "Set files as default-files to save to?",
+                        "Default Files", JOptionPane.YES_NO_OPTION,
+                        JOptionPane.PLAIN_MESSAGE) == JOptionPane.YES_OPTION) {
+
+                    savedLocalSchedulesFile = localSchedulesFile;
+                    savedLocalAppointmentsFile = localAppointmentsFile;
+
+                }
+            }
+        }
+
+        if (localSchedulesFile != null && localAppointmentsFile != null) {
+            try {
+                schedInv.loadFileFromRemote(
+                        "ahif16.bplaced.net/www/classSchedules/Data/dataFile.html",
+                        username, password,
+                        localSchedulesFile);
+
+                appInv.loadFileFromRemote(
+                        "ahif16.bplaced.net/www/classSchedules/Data/terminFile.html",
+                        username, password,
+                        localAppointmentsFile);
+
+            } catch (UnknownHostException e) {
+                JOptionPane.showMessageDialog(this,
+                        "Host konnte nicht gefunden werden\n" + e.getMessage(),
+                        "Fehler",
+                        JOptionPane.ERROR_MESSAGE);
+            } catch (MalformedURLException e) {
+                JOptionPane.showMessageDialog(this,
+                        "URL falsch\n" + e.getMessage(),
+                        "Fehler",
+                        JOptionPane.ERROR_MESSAGE);
+            } catch (IOException e) {
+                JOptionPane.showMessageDialog(this,
+                        "Datei konnte nicht geöffnet werden.\n" + e.getMessage(),
+                        "Fehler",
+                        JOptionPane.ERROR_MESSAGE);
+            } catch (DateTimeParseException e) {
+                JOptionPane.showMessageDialog(this,
+                        "Datumsformat falsch\n" + e.getMessage(),
+                        "Fehler",
+                        JOptionPane.ERROR_MESSAGE);
+            }
+
         }
 
 
