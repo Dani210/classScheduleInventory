@@ -46,11 +46,17 @@
               <Properties>
                 <Property name="text" type="java.lang.String" value="load from local"/>
               </Properties>
+              <Events>
+                <EventHandler event="actionPerformed" listener="java.awt.event.ActionListener" parameters="java.awt.event.ActionEvent" handler="onLoadFromLocalActionPerformed"/>
+              </Events>
             </MenuItem>
             <MenuItem class="javax.swing.JMenuItem" name="onSaveToLocal">
               <Properties>
                 <Property name="text" type="java.lang.String" value="save to local"/>
               </Properties>
+              <Events>
+                <EventHandler event="actionPerformed" listener="java.awt.event.ActionListener" parameters="java.awt.event.ActionEvent" handler="onSaveToLocalActionPerformed"/>
+              </Events>
             </MenuItem>
             <MenuItem class="javax.swing.JMenuItem" name="onSaveToRemote">
               <Properties>
