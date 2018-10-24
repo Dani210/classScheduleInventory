@@ -1,5 +1,6 @@
 package gui;
 
+import bl.AbstractInventory;
 import bl.Appointment;
 import bl.AppointmentInventory;
 import bl.Schedule;
@@ -11,6 +12,8 @@ import java.net.MalformedURLException;
 import java.net.UnknownHostException;
 import java.time.LocalDate;
 import java.time.format.DateTimeParseException;
+import java.util.logging.Level;
+import java.util.logging.Logger;
 import javax.swing.JFileChooser;
 import javax.swing.JOptionPane;
 
@@ -32,14 +35,14 @@ public class GUI extends javax.swing.JFrame {
     private String savedUsername;
     //Inhalt des Passwords verschlüsselt
     private char[] savedPassword;
-    
 
     //lokale gespeicherte Dateien, um dem User Arbeit zu ersparen
     //wie savedUsername und Password
     private File savedLocalSchedulesFile;
     private File savedLocalAppointmentsFile;
 
-    public GUI() {
+    public GUI()
+            throws IOException {
         initComponents();
 
         schedInv = new ScheduleInventory();
@@ -59,6 +62,9 @@ public class GUI extends javax.swing.JFrame {
 
         savedLocalSchedulesFile = null;
         savedLocalAppointmentsFile = null;
+
+        savedUsername = AbstractInventory.loadUserData(
+                new File("src/DataFiles/.user"));
     }
 
     @SuppressWarnings("unchecked")
@@ -116,6 +122,11 @@ public class GUI extends javax.swing.JFrame {
         menuData.add(onAdd);
 
         onRemove.setText("Remove");
+        onRemove.addActionListener(new java.awt.event.ActionListener() {
+            public void actionPerformed(java.awt.event.ActionEvent evt) {
+                onRemoveActionPerformed(evt);
+            }
+        });
         menuData.add(onRemove);
 
         onChange.setText("Change");
@@ -159,13 +170,13 @@ public class GUI extends javax.swing.JFrame {
         pack();
     }// </editor-fold>//GEN-END:initComponents
 
-    private int getCurrentTab(){
+    private int getCurrentTab() {
         return panelSwitcher.getSelectedComponent().equals(plSchedules) ? SCHED_TAB : APP_TAB;
     }
-    
+
     private void onAddActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_onAddActionPerformed
         addingDialog = new AddEntryDlg(this, true);
-        
+
         //gibt das gewählte Fenster an
         int currentTab = getCurrentTab();
         //true, wenn das momentane Fenster schedules anzeigt
@@ -181,7 +192,6 @@ public class GUI extends javax.swing.JFrame {
         }
         addingDialog.setVisible(true);
 
-        
         //wird nur ausgeführt, wenn etwas hinzugefügt werden soll
         if (addingDialog.wasOk()) {
             if (currentTab == SCHED_TAB) {
@@ -222,8 +232,7 @@ public class GUI extends javax.swing.JFrame {
             //wird nur ausgeführt, sollten schon Daten gespeichert worden sein
             if ((yesOrNo = JOptionPane.showConfirmDialog(this, "Use saved login?", "Login",
                     JOptionPane.YES_NO_OPTION, JOptionPane.PLAIN_MESSAGE))
-                    == JOptionPane.YES_OPTION) 
-            {
+                    == JOptionPane.YES_OPTION) {
                 username = savedUsername;
                 plainPassword = Cryptor.decrypt(savedPassword);
 
@@ -243,7 +252,12 @@ public class GUI extends javax.swing.JFrame {
             }
         } else if (savedUsername == null || savedPassword == null) {
             loginDialog = new LoginDlg(this, true);
-            loginDialog.setDefaults(DEFAULTUSERNAME, DEFAULTPASSWORD);
+            if (savedUsername != null) {
+                loginDialog.setDefaults(savedUsername, DEFAULTPASSWORD);
+            } else {
+                loginDialog.setDefaults(DEFAULTUSERNAME, DEFAULTPASSWORD);
+            }
+
             loginDialog.setVisible(true);
 
             username = loginDialog.getUsername();
@@ -252,6 +266,14 @@ public class GUI extends javax.swing.JFrame {
 
             if (loginDialog.getSaveLogin()) {
                 this.savedUsername = username;
+                try {
+                    AbstractInventory.saveUserData(username, new File("src/DataFiles/.user"));
+                } catch (IOException ioe) {
+                    JOptionPane.showMessageDialog(this, "There were errors while"
+                            + " saving your username for further uses.",
+                            "Saving error",
+                            JOptionPane.ERROR_MESSAGE);
+                }
                 this.savedPassword = Cryptor.enrypt(plainPassword.toCharArray());
             }
         }
@@ -261,7 +283,7 @@ public class GUI extends javax.swing.JFrame {
 
     private File[] getLocalSchedulesAndAppointmentsFilesForSaving() {
         File localSchedulesFile = null, localAppointmentsFile = null;
-        
+
         int yesOrNo = -1;
         if (savedLocalSchedulesFile != null && savedLocalAppointmentsFile != null) {
             if ((yesOrNo = JOptionPane.showConfirmDialog(this, "Use saved files?", "Files",
@@ -290,6 +312,7 @@ public class GUI extends javax.swing.JFrame {
         } else if (savedLocalSchedulesFile == null || savedLocalAppointmentsFile == null) {
             chooser.setDialogTitle("Local Schedules-File");
             localSchedulesFile = chooser.showSaveDialog(this) == JFileChooser.APPROVE_OPTION ? chooser.getSelectedFile() : null;
+
             chooser.setDialogTitle("Local Appointments-File");
             localAppointmentsFile = chooser.showSaveDialog(this) == JFileChooser.APPROVE_OPTION ? chooser.getSelectedFile() : null;
 
@@ -303,7 +326,7 @@ public class GUI extends javax.swing.JFrame {
 
             }
         }
-        
+
         return new File[]{localSchedulesFile, localAppointmentsFile};
     }
 
@@ -320,22 +343,27 @@ public class GUI extends javax.swing.JFrame {
 
         if (username != null && password != null) {
             //DefaultFiles ? defFiles : chooser;
-            File [] schedAndApp = getLocalSchedulesAndAppointmentsFilesForSaving();
+            File[] schedAndApp = getLocalSchedulesAndAppointmentsFilesForSaving();
             localSchedulesFile = schedAndApp[0];
             localAppointmentsFile = schedAndApp[1];
+        } else {
+            return;
         }
 
-        if (localSchedulesFile != null && localAppointmentsFile != null) {
+        if (localSchedulesFile != null || localAppointmentsFile != null) {
             try {
-                schedInv.loadFileFromRemote(
-                        "ahif16.bplaced.net/www/classSchedules/Data/dataFile.html",
-                        username, password,
-                        localSchedulesFile);
-
-                appInv.loadFileFromRemote(
-                        "ahif16.bplaced.net/www/classSchedules/Data/terminFile.html",
-                        username, password,
-                        localAppointmentsFile);
+                if (localSchedulesFile != null) {
+                    schedInv.loadFileFromRemote(
+                            "ahif16.bplaced.net/www/classSchedules/Data/dataFile.html",
+                            username, password,
+                            localSchedulesFile);
+                }
+                if (localAppointmentsFile != null) {
+                    appInv.loadFileFromRemote(
+                            "ahif16.bplaced.net/www/classSchedules/Data/terminFile.html",
+                            username, password,
+                            localAppointmentsFile);
+                }
 
             } catch (UnknownHostException e) {
                 JOptionPane.showMessageDialog(this,
@@ -361,7 +389,7 @@ public class GUI extends javax.swing.JFrame {
 
         }
 
-
+        System.gc();
     }//GEN-LAST:event_onLoadFromRemoteActionPerformed
 
     private void onLoadFromLocalActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_onLoadFromLocalActionPerformed
@@ -369,8 +397,17 @@ public class GUI extends javax.swing.JFrame {
     }//GEN-LAST:event_onLoadFromLocalActionPerformed
 
     private void onSaveToLocalActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_onSaveToLocalActionPerformed
-        
+
     }//GEN-LAST:event_onSaveToLocalActionPerformed
+
+    private void onRemoveActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_onRemoveActionPerformed
+        int tab = getCurrentTab();
+        if (tab == SCHED_TAB) {
+            schedInv.remove(listSchedules.getSelectedIndex());
+        } else if (tab == APP_TAB) {
+            appInv.remove(listAppointments.getSelectedIndex());
+        }
+    }//GEN-LAST:event_onRemoveActionPerformed
 
     public static void main(String args[]) {
         /* Set the Nimbus look and feel */
@@ -399,7 +436,11 @@ public class GUI extends javax.swing.JFrame {
         /* Create and display the form */
         java.awt.EventQueue.invokeLater(new Runnable() {
             public void run() {
-                new GUI().setVisible(true);
+                try {
+                    new GUI().setVisible(true);
+                } catch (IOException ex) {
+                    System.out.println("Username could not get read in");
+                }
             }
         });
     }
@@ -424,12 +465,10 @@ public class GUI extends javax.swing.JFrame {
     private javax.swing.JScrollPane scrollSchedules;
     // End of variables declaration//GEN-END:variables
 
-
-    
     //Konstanten
     public static final String DEFAULTUSERNAME = "anonymous";
     public static final String DEFAULTPASSWORD = "";
-    
+
     private static final int SCHED_TAB = 0;
     private static final int APP_TAB = 1;
 

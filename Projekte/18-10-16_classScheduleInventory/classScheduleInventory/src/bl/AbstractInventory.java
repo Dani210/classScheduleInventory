@@ -69,5 +69,16 @@ public abstract class AbstractInventory <Type>
         return this.entries.size();
     }
     
+    public static final void saveUserData(String username, File file)
+            throws IOException
+    {
+        AbstractInventory.dal.saveUserData(username, file);
+    }
+    
+    public static final String loadUserData(File file)
+            throws IOException
+    {
+        return AbstractInventory.dal.loadUserData(file);
+    }
     
 }

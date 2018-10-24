@@ -2,7 +2,9 @@ package dal;
 
 import bl.AbstractInventory;
 import bl.Appointment;
+import java.io.BufferedWriter;
 import java.io.File;
+import java.io.FileWriter;
 import java.io.IOException;
 import java.time.LocalDate;
 import java.time.format.DateTimeParseException;
@@ -18,8 +20,28 @@ public class DAL {
         net = new Net();
     }
     
-    
+    public void saveUserData(String username, File file)
+            throws IOException
+    {    
+        BufferedWriter buf = new BufferedWriter(new FileWriter(file));
+        buf.write(username);
+        buf.close();
+    }
 
+    public String loadUserData(File file)
+            throws IOException
+    {
+        Scanner scan = new Scanner(file);
+        String username = null;
+        try{
+            username = scan.nextLine();
+        } catch(Exception e){
+            System.out.println("Error loading username");
+        }
+        
+        return username;
+    }
+    
     public void saveToLocal(File localFile, ArrayList entries) {
 
     }

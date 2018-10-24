@@ -1,65 +1,54 @@
 package cryptStation;
 
-import java.time.LocalDate;
-import java.time.LocalTime;
-import java.util.Random;
+import java.security.SecureRandom;
 
 public class Cryptor {
-    
-    private static final int DEFAULT_HASH_LENGTH = 256;
-    
-    
-    //256 Zeichen groß (immer)
-    private static char [] temporalKey;
+
+    private static char[] temporalKey;
 
     public static char[] enrypt(char[] plainPassword) {
-        if(Cryptor.temporalKey == null){
-            //createKey
-            createKey(DEFAULT_HASH_LENGTH);
+        if (Cryptor.temporalKey == null) {
+            createKey(plainPassword.length);
         }
-        else{
-            //encrypt with key
+
+        char[] encrypted = new char[plainPassword.length];
+
+        char[] key = Cryptor.temporalKey;
+
+        for (int i = 0; i < encrypted.length; i++) {
+            encrypted[i] = (char) ((long) plainPassword[i] ^ (long) key[i]);
         }
-        
-        return new char[10];
+        return encrypted;
+
     }
 
     public static String decrypt(char[] encryptedPass) {
         //decrypt with key
-        return "";
+        char[] plain = new char[encryptedPass.length];
+
+        char[] key = Cryptor.temporalKey;
+
+        for (int i = 0; i < encryptedPass.length; i++) {
+            plain[i] = (char) ((long) encryptedPass[i] ^ (long) key[i]);
+        }
+
+        String plainPass = "";
+        for (int i = 0; i < plain.length; i++) {
+            plainPass += plain[i];
+        }
+        return plainPass;
     }
-    
-    private static void createKey(int hashLength){
-        StringBuilder hashD = new StringBuilder("" + LocalDate.now().hashCode());
-        StringBuilder hashT = new StringBuilder("" + LocalTime.now().hashCode());
-        Random randy = new Random();
-        
-        StringBuilder finalHash = new StringBuilder();
-        
-        //hashD -> leading zeroes
-        //offset == Stelle an der eingefügt wird
-        while(hashD.length() < hashLength){
-            //offset == Stelle an der eingefügt wird
-            hashD = hashD.insert(0, (char) randy.nextInt());
-        }
-        
-        //hashT -> trailing zeroes
-        while(hashT.length() < hashLength){
-            //offset == Stelle an der eingefügt wird
-            hashT = hashT.insert(hashT.length(), (char) randy.nextInt());
-        }
-        
-        
-        //anded -> hashD & hashT
-        for(int i = 0; i < hashLength; i++){
-            finalHash.append((char)
-                    (((int)hashD.charAt(i)) ^ ((int)hashT.charAt(i)))
+
+    private static void createKey(int hashLength) {
+        SecureRandom randy = new SecureRandom();
+        StringBuilder key = new StringBuilder();
+
+        for (int i = 0; i < hashLength; i++) {
+            key.append((char) (randy.nextInt() ^ (randy.nextInt()))
             );
         }
+
+        Cryptor.temporalKey = key.toString().toCharArray();
     }
-    
-    public static void main(String[] args) {
-        createKey(DEFAULT_HASH_LENGTH);
-    }
-    
+
 }

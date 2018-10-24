@@ -17,7 +17,7 @@ public class Net {
         
         //remote File to local File
         Scanner scan = new Scanner(new URL(
-                "ftp://" + username + ":" + password + "@" + address
+                "ftp://" + (username==null?"anonymous":username) + ":" + (password==null?"":password) + "@" + (address==null?"":address)
         ).openStream());
         BufferedWriter buf = new BufferedWriter(new FileWriter(localFile));
         
