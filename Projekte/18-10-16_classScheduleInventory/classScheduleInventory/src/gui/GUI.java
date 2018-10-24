@@ -12,8 +12,6 @@ import java.net.MalformedURLException;
 import java.net.UnknownHostException;
 import java.time.LocalDate;
 import java.time.format.DateTimeParseException;
-import java.util.logging.Level;
-import java.util.logging.Logger;
 import javax.swing.JFileChooser;
 import javax.swing.JOptionPane;
 
@@ -130,6 +128,11 @@ public class GUI extends javax.swing.JFrame {
         menuData.add(onRemove);
 
         onChange.setText("Change");
+        onChange.addActionListener(new java.awt.event.ActionListener() {
+            public void actionPerformed(java.awt.event.ActionEvent evt) {
+                onChangeActionPerformed(evt);
+            }
+        });
         menuData.add(onChange);
 
         mainMenuBar.add(menuData);
@@ -281,7 +284,7 @@ public class GUI extends javax.swing.JFrame {
         return new String[]{username, plainPassword};
     }
 
-    private File[] getLocalSchedulesAndAppointmentsFilesForSaving() {
+    private File[] getLocalSchedulesAndAppointmentsFiles() {
         File localSchedulesFile = null, localAppointmentsFile = null;
 
         int yesOrNo = -1;
@@ -343,7 +346,7 @@ public class GUI extends javax.swing.JFrame {
 
         if (username != null && password != null) {
             //DefaultFiles ? defFiles : chooser;
-            File[] schedAndApp = getLocalSchedulesAndAppointmentsFilesForSaving();
+            File[] schedAndApp = getLocalSchedulesAndAppointmentsFiles();
             localSchedulesFile = schedAndApp[0];
             localAppointmentsFile = schedAndApp[1];
         } else {
@@ -408,6 +411,55 @@ public class GUI extends javax.swing.JFrame {
             appInv.remove(listAppointments.getSelectedIndex());
         }
     }//GEN-LAST:event_onRemoveActionPerformed
+
+    private void onChangeActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_onChangeActionPerformed
+        int tab = getCurrentTab();
+        int row = -1;
+        addingDialog = new AddEntryDlg(this, true);
+        Schedule s = null;
+        Appointment a = null;
+        
+        
+        if (tab == SCHED_TAB) {
+            row = listSchedules.getSelectedIndex();
+            s = schedInv.getElementAt(row);
+
+            addingDialog.setTitle("Add schedule");
+            addingDialog.setLabels("Subject:", "Until:");
+            addingDialog.setTextFields(s.getSubject(), s.getDescription(),
+                    LocalDate.parse(s.getDateDue(),
+                            AbstractInventory.DATEFORMATTER));
+        } else if (tab == APP_TAB) {
+            row = listAppointments.getSelectedIndex();
+            a = appInv.getElementAt(row);
+
+            addingDialog.setTitle("Add appointment");
+            addingDialog.setLabels("Title:", "Date:");
+            addingDialog.setTextFields(a.getSubject(), a.getDescription(),
+                    LocalDate.parse(a.getDate(),
+                            AbstractInventory.DATEFORMATTER));
+        }
+        
+        addingDialog.setVisible(true);
+
+        if (addingDialog.wasOk()) {
+            if (tab == SCHED_TAB) {
+                try {
+                    schedInv.set(row, new Schedule(addingDialog.getTitle(), addingDialog.getDescription(), addingDialog.getDate()));
+                } catch (DateTimeParseException dtpe) {
+                    JOptionPane.showMessageDialog(this, dtpe.getMessage(),
+                            "Fehler: Datum", JOptionPane.ERROR_MESSAGE);
+                }
+            } else if (tab == APP_TAB) {
+                try {
+                    appInv.set(row, new Appointment(addingDialog.getTitle(), addingDialog.getDescription(), addingDialog.getDate()));
+                } catch (DateTimeParseException dtpe) {
+                    JOptionPane.showMessageDialog(this, dtpe.getMessage(),
+                            "Fehler: Datum", JOptionPane.ERROR_MESSAGE);
+                }
+            }
+        }
+    }//GEN-LAST:event_onChangeActionPerformed
 
     public static void main(String args[]) {
         /* Set the Nimbus look and feel */
